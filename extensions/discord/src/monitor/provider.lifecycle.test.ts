@@ -857,6 +857,40 @@ describe("runDiscordGatewayLifecycle", () => {
     );
   });
 
+  it("rejects queued reconnect-exhausted when maxAttempts is not 0", async () => {
+    const { runDiscordGatewayLifecycle } = await import("./provider.lifecycle.js");
+    const pendingGatewayEvents: DiscordGatewayEvent[] = [];
+    const emitter = new EventEmitter();
+    const gateway: MockGateway = {
+      isConnected: true,
+      options: { intents: 0, reconnect: { maxAttempts: 3 } } as GatewayPlugin["options"],
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      emitter,
+    };
+    getDiscordGatewayEmitterMock.mockReturnValueOnce(emitter);
+
+    const { lifecycleParams, runtimeLog } = createLifecycleHarness({
+      gateway,
+      pendingGatewayEvents,
+    });
+
+    const lifecyclePromise = runDiscordGatewayLifecycle(lifecycleParams);
+    pendingGatewayEvents.push(
+      createGatewayEvent(
+        "reconnect-exhausted",
+        "Max reconnect attempts (3) reached after code 1006",
+      ),
+    );
+
+    await expect(lifecyclePromise).rejects.toThrow(
+      "Max reconnect attempts (3) reached after code 1006",
+    );
+    expect(runtimeLog).not.toHaveBeenCalledWith(
+      expect.stringContaining("ignoring expected reconnect-exhausted during shutdown/restart"),
+    );
+  });
+
   it("does not push connected: true when abortSignal is already aborted", async () => {
     const { runDiscordGatewayLifecycle } = await import("./provider.lifecycle.js");
     const emitter = new EventEmitter();
