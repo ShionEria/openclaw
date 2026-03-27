@@ -141,6 +141,22 @@ async function runBrowserTabClose(
   });
 }
 
+async function runBrowserTabList(parent: BrowserParentOpts, profile?: string) {
+  await runBrowserCommand(async () => {
+    const result = await callBrowserRequest<{ running: boolean; tabs: BrowserTab[] }>(
+      parent,
+      {
+        method: "GET",
+        path: "/tabs",
+        query: resolveProfileQuery(profile),
+      },
+      { timeoutMs: BROWSER_MANAGE_REQUEST_TIMEOUT_MS },
+    );
+    const tabs = result.tabs ?? [];
+    logBrowserTabs(tabs, parent?.json);
+  });
+}
+
 function logBrowserTabs(tabs: BrowserTab[], json?: boolean) {
   if (json) {
     defaultRuntime.writeJson({ tabs });
@@ -276,78 +292,14 @@ export function registerBrowserManageCommands(
       });
     });
 
-  const tabs = browser
-    .command("tabs")
+  const tab = browser
+    .command("tab")
+    .alias("tabs")
     .description("List open tabs")
     .action(async (_opts, cmd) => {
       const parent = parentOpts(cmd);
       const profile = parent?.browserProfile;
-      await runBrowserCommand(async () => {
-        const result = await callBrowserRequest<{ running: boolean; tabs: BrowserTab[] }>(
-          parent,
-          {
-            method: "GET",
-            path: "/tabs",
-            query: resolveProfileQuery(profile),
-          },
-          { timeoutMs: BROWSER_MANAGE_REQUEST_TIMEOUT_MS },
-        );
-        const tabs = result.tabs ?? [];
-        logBrowserTabs(tabs, parent?.json);
-      });
-    });
-
-  tabs
-    .command("new")
-    .description("Open a new tab (about:blank)")
-    .action(async (_opts, cmd) => {
-      const parent = parentOpts(cmd);
-      const profile = parent?.browserProfile;
-      await runBrowserTabNew(parent, profile);
-    });
-
-  tabs
-    .command("select")
-    .description("Focus tab by index (1-based)")
-    .argument("<index>", "Tab index (1-based)", (v: string) => Number(v))
-    .action(async (index: number, _opts, cmd) => {
-      const parent = parentOpts(cmd);
-      const profile = parent?.browserProfile;
-      await runBrowserTabSelect(parent, profile, index);
-    });
-
-  tabs
-    .command("close")
-    .description("Close tab by index (1-based); default: first tab")
-    .argument("[index]", "Tab index (1-based)", (v: string) => Number(v))
-    .action(async (index: number | undefined, _opts, cmd) => {
-      const parent = parentOpts(cmd);
-      const profile = parent?.browserProfile;
-      await runBrowserTabClose(parent, profile, index);
-    });
-
-  const tab = browser
-    .command("tab")
-    .description("Tab shortcuts (index-based)")
-    .action(async (_opts, cmd) => {
-      const parent = parentOpts(cmd);
-      const profile = parent?.browserProfile;
-      await runBrowserCommand(async () => {
-        const result = await callBrowserRequest<{ ok: true; tabs: BrowserTab[] }>(
-          parent,
-          {
-            method: "POST",
-            path: "/tabs/action",
-            query: resolveProfileQuery(profile),
-            body: {
-              action: "list",
-            },
-          },
-          { timeoutMs: BROWSER_MANAGE_REQUEST_TIMEOUT_MS },
-        );
-        const tabs = result.tabs ?? [];
-        logBrowserTabs(tabs, parent?.json);
-      });
+      await runBrowserTabList(parent, profile);
     });
 
   tab
