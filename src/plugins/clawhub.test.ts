@@ -207,4 +207,53 @@ describe("installPluginFromClawHub", () => {
       error: "fetch failed",
     });
   });
+
+  it("returns typed request failures for transient HTTP package resolution errors", async () => {
+    fetchClawHubPackageDetailMock.mockRejectedValueOnce(
+      new ClawHubRequestError({
+        path: "/api/v1/packages/demo",
+        status: 502,
+        body: "Bad gateway",
+      }),
+    );
+
+    await expect(installPluginFromClawHub({ spec: "clawhub:demo" })).resolves.toMatchObject({
+      ok: false,
+      code: CLAWHUB_INSTALL_ERROR_CODE.REQUEST_FAILED,
+      error: "ClawHub /api/v1/packages/demo failed (502): Bad gateway",
+    });
+  });
+
+  it("returns terminal request-rejected failures for auth or policy package resolution errors", async () => {
+    fetchClawHubPackageDetailMock.mockRejectedValueOnce(
+      new ClawHubRequestError({
+        path: "/api/v1/packages/demo",
+        status: 403,
+        body: "Forbidden",
+      }),
+    );
+
+    await expect(installPluginFromClawHub({ spec: "clawhub:demo" })).resolves.toMatchObject({
+      ok: false,
+      code: CLAWHUB_INSTALL_ERROR_CODE.REQUEST_REJECTED,
+      error: "ClawHub /api/v1/packages/demo failed (403): Forbidden",
+    });
+  });
+
+  it("returns terminal request-rejected failures for auth or policy version resolution errors", async () => {
+    parseClawHubPluginSpecMock.mockReturnValueOnce({ name: "demo", version: "9.9.9" });
+    fetchClawHubPackageVersionMock.mockRejectedValueOnce(
+      new ClawHubRequestError({
+        path: "/api/v1/packages/demo/versions/9.9.9",
+        status: 429,
+        body: "Too many requests",
+      }),
+    );
+
+    await expect(installPluginFromClawHub({ spec: "clawhub:demo@9.9.9" })).resolves.toMatchObject({
+      ok: false,
+      code: CLAWHUB_INSTALL_ERROR_CODE.REQUEST_REJECTED,
+      error: "ClawHub /api/v1/packages/demo/versions/9.9.9 failed (429): Too many requests",
+    });
+  });
 });

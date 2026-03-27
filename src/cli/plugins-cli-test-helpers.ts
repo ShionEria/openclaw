@@ -118,6 +118,7 @@ vi.mock("../plugins/clawhub.js", () => ({
   CLAWHUB_INSTALL_ERROR_CODE: {
     PACKAGE_NOT_FOUND: "package_not_found",
     REQUEST_FAILED: "request_failed",
+    REQUEST_REJECTED: "request_rejected",
     VERSION_NOT_FOUND: "version_not_found",
   },
   installPluginFromClawHub: (...args: unknown[]) => installPluginFromClawHub(...args),

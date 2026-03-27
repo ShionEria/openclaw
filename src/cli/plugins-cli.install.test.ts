@@ -400,6 +400,21 @@ describe("plugins cli install", () => {
     );
   });
 
+  it("does not fall back to npm when ClawHub rejects a valid npm package spec", async () => {
+    installPluginFromClawHub.mockResolvedValue({
+      ok: false,
+      error: "ClawHub /api/v1/packages/%40openclaw%2Fvoice-call failed (403): Forbidden",
+      code: "request_rejected",
+    });
+
+    await expect(runPluginsCommand(["plugins", "install", "@openclaw/voice-call@beta"])).rejects.toThrow(
+      "__exit__:1",
+    );
+
+    expect(installPluginFromNpmSpec).not.toHaveBeenCalled();
+    expect(runtimeErrors.at(-1)).toContain("failed (403): Forbidden");
+  });
+
   it("does not fall back to npm when ClawHub rejects a real package", async () => {
     installPluginFromClawHub.mockResolvedValue({
       ok: false,

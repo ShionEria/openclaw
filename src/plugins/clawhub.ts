@@ -22,6 +22,7 @@ export const CLAWHUB_INSTALL_ERROR_CODE = {
   PACKAGE_NOT_FOUND: "package_not_found",
   VERSION_NOT_FOUND: "version_not_found",
   REQUEST_FAILED: "request_failed",
+  REQUEST_REJECTED: "request_rejected",
   NO_INSTALLABLE_VERSION: "no_installable_version",
   SKILL_PACKAGE: "skill_package",
   UNSUPPORTED_FAMILY: "unsupported_family",
@@ -71,17 +72,23 @@ function mapClawHubRequestError(
   error: unknown,
   context: { stage: "package" | "version"; name: string; version?: string },
 ): ClawHubInstallFailure {
-  if (error instanceof ClawHubRequestError && error.status === 404) {
-    if (context.stage === "package") {
+  if (error instanceof ClawHubRequestError) {
+    if (error.status === 404) {
+      if (context.stage === "package") {
+        return buildClawHubInstallFailure(
+          "Package not found on ClawHub.",
+          CLAWHUB_INSTALL_ERROR_CODE.PACKAGE_NOT_FOUND,
+        );
+      }
       return buildClawHubInstallFailure(
-        "Package not found on ClawHub.",
-        CLAWHUB_INSTALL_ERROR_CODE.PACKAGE_NOT_FOUND,
+        `Version not found on ClawHub: ${context.name}@${context.version ?? "unknown"}.`,
+        CLAWHUB_INSTALL_ERROR_CODE.VERSION_NOT_FOUND,
       );
     }
-    return buildClawHubInstallFailure(
-      `Version not found on ClawHub: ${context.name}@${context.version ?? "unknown"}.`,
-      CLAWHUB_INSTALL_ERROR_CODE.VERSION_NOT_FOUND,
-    );
+    if (error.status >= 500) {
+      return buildClawHubInstallFailure(error.message, CLAWHUB_INSTALL_ERROR_CODE.REQUEST_FAILED);
+    }
+    return buildClawHubInstallFailure(error.message, CLAWHUB_INSTALL_ERROR_CODE.REQUEST_REJECTED);
   }
   return buildClawHubInstallFailure(
     error instanceof Error ? error.message : String(error),
