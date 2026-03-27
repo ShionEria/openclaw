@@ -276,7 +276,7 @@ export function registerBrowserManageCommands(
       });
     });
 
-  browser
+  const tabs = browser
     .command("tabs")
     .description("List open tabs")
     .action(async (_opts, cmd) => {
@@ -297,8 +297,8 @@ export function registerBrowserManageCommands(
       });
     });
 
-  browser
-    .command("tabs new")
+  tabs
+    .command("new")
     .description("Open a new tab (about:blank)")
     .action(async (_opts, cmd) => {
       const parent = parentOpts(cmd);
@@ -306,8 +306,8 @@ export function registerBrowserManageCommands(
       await runBrowserTabNew(parent, profile);
     });
 
-  browser
-    .command("tabs select")
+  tabs
+    .command("select")
     .description("Focus tab by index (1-based)")
     .argument("<index>", "Tab index (1-based)", (v: string) => Number(v))
     .action(async (index: number, _opts, cmd) => {
@@ -316,8 +316,8 @@ export function registerBrowserManageCommands(
       await runBrowserTabSelect(parent, profile, index);
     });
 
-  browser
-    .command("tabs close")
+  tabs
+    .command("close")
     .description("Close tab by index (1-based); default: first tab")
     .argument("[index]", "Tab index (1-based)", (v: string) => Number(v))
     .action(async (index: number | undefined, _opts, cmd) => {
