@@ -176,6 +176,14 @@ describe("browser server-context remote profile tab operations", () => {
             url: "chrome://omnibox-popup.top-chrome/",
             type: "page",
           },
+        ],
+        [
+          {
+            targetId: "OMNI",
+            title: "Omnibox",
+            url: "chrome://omnibox-popup.top-chrome/",
+            type: "page",
+          },
           {
             targetId: "REAL",
             title: "New Tab",

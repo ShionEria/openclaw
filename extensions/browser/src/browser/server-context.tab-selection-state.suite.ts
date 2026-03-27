@@ -7,6 +7,7 @@ vi.hoisted(() => {
 
 import "./server-context.chrome-test-harness.js";
 import * as cdpModule from "./cdp.js";
+import { BrowserTabNotFoundError } from "./errors.js";
 import { InvalidBrowserNavigationUrlError } from "./navigation-guard.js";
 import { createBrowserRouteContext } from "./server-context.js";
 import {
@@ -140,7 +141,7 @@ describe("browser server-context tab selection state", () => {
         throw new Error(`unexpected fetch: ${value}`);
       }
       listCount += 1;
-      if (listCount === 1) {
+      if (listCount < 3) {
         return {
           ok: true,
           json: async () => [
@@ -188,6 +189,39 @@ describe("browser server-context tab selection state", () => {
       url: "about:blank",
       ssrfPolicy: { allowPrivateNetwork: true },
     });
+  });
+
+  it("keeps implicit selection off internal Chrome UI targets when fallback tab creation is rejected", async () => {
+    vi.spyOn(cdpModule, "createTargetViaCdp").mockRejectedValue(
+      new InvalidBrowserNavigationUrlError("strict mode blocks fallback tab creation"),
+    );
+
+    const fetchMock = vi.fn(async (url: unknown) => {
+      const value = String(url);
+      if (!value.includes("/json/list")) {
+        throw new Error(`unexpected fetch: ${value}`);
+      }
+      return {
+        ok: true,
+        json: async () => [
+          {
+            id: "OMNI",
+            title: "Search tabs",
+            url: "chrome://tab-search.top-chrome/",
+            webSocketDebuggerUrl: "ws://127.0.0.1/devtools/page/OMNI",
+            type: "page",
+          },
+        ],
+      } as unknown as Response;
+    });
+
+    global.fetch = withFetchPreconnect(fetchMock);
+    const state = makeState("openclaw");
+    state.resolved.ssrfPolicy = {};
+    const ctx = createBrowserRouteContext({ getState: () => state });
+    const openclaw = ctx.forProfile("openclaw");
+
+    await expect(openclaw.ensureTabAvailable()).rejects.toBeInstanceOf(BrowserTabNotFoundError);
   });
 
   it("closes excess managed tabs after opening a new tab", async () => {

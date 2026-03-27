@@ -3,6 +3,7 @@ import { appendCdpPath } from "./cdp.js";
 import { closeChromeMcpTab, focusChromeMcpTab } from "./chrome-mcp.js";
 import type { ResolvedBrowserProfile } from "./config.js";
 import { BrowserTabNotFoundError, BrowserTargetAmbiguousError } from "./errors.js";
+import { InvalidBrowserNavigationUrlError } from "./navigation-guard.js";
 import { getBrowserProfileCapabilities } from "./profile-capabilities.js";
 import type { PwAiModule } from "./pw-ai-module.js";
 import { getPwAiModule } from "./pw-ai-module.js";
@@ -56,12 +57,23 @@ export function createProfileSelectionOps({
   const cdpHttpBase = normalizeCdpHttpBaseForJsonEndpoints(profile.cdpUrl);
   const capabilities = getBrowserProfileCapabilities(profile);
 
+  const tryOpenImplicitFallbackTab = async (): Promise<void> => {
+    try {
+      await openTab("about:blank");
+    } catch (err) {
+      if (err instanceof InvalidBrowserNavigationUrlError) {
+        return;
+      }
+      throw err;
+    }
+  };
+
   const ensureTabAvailable = async (targetId?: string): Promise<BrowserTab> => {
     await ensureBrowserAvailable();
     const profileState = getProfileState();
     const tabs1 = await listTabs();
     if (tabs1.length === 0) {
-      await openTab("about:blank");
+      await tryOpenImplicitFallbackTab();
     }
 
     const listCandidateTabs = async () => {
@@ -70,7 +82,7 @@ export function createProfileSelectionOps({
     };
     let candidates = await listCandidateTabs();
     if (!targetId && candidates.length > 0 && !candidates.some(isDefaultNavigableTab)) {
-      await openTab("about:blank");
+      await tryOpenImplicitFallbackTab();
       candidates = await listCandidateTabs();
     }
 
@@ -93,7 +105,8 @@ export function createProfileSelectionOps({
       }
       // Prefer a real page tab first (avoid service workers/background targets).
       const page = candidates.find(isDefaultNavigableTab);
-      return page ?? candidates.at(0) ?? null;
+      const nonInternal = candidates.find((tab) => !isBrowserInternalSurfaceUrl(tab.url));
+      return page ?? nonInternal ?? null;
     };
 
     const chosen = targetId ? resolveById(targetId) : pickDefault();
